@@ -1,0 +1,58 @@
+name: Generate Lithuanian audio
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/lithuanian-audio.yml']
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install speech tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y espeak-ng ffmpeg
+          python -m pip install piper-tts==1.8.0 huggingface_hub
+      - name: Generate audio
+        run: |
+          python - <<'PY'
+          import os,json,wave,subprocess,sys,pathlib
+          from huggingface_hub import snapshot_download
+          base=pathlib.Path.cwd()
+          model=pathlib.Path(snapshot_download('RobertasTa/lt_LT-reginute1-medium',local_dir='/tmp/reginute'))
+          sys.path.insert(0,str(model))
+          from piper import PiperVoice
+          from phonemize_lithuanian import LithuanianPhonemizer
+          from skaiciu_pletiklis import isplesk
+          from synth_reginute import ReginuteSynth,i_int16
+          os.chdir(model)
+          voice=PiperVoice.load(str(model/'lt_LT-reginute1-medium.onnx'),config_path=str(model/'lt_LT-reginute1-medium.onnx.json'))
+          synth=ReginuteSynth(voice,LithuanianPhonemizer(),length_scale=1.30,expand_text=isplesk)
+          items=["Labas! Šiandien mokysimės lietuvių kalbos. Kęstutis grįžo namo ir įminė mįslę.","Šiandien su drauge ėjome į mišką.","Prie tako augo didžiulis ąžuolas.","Po medžiu radome grybų ir gražių kankorėžių.","Staiga iš krūmų iššoko kiškis.","Vakare grįžome namo ir padėkojome už nuotykį.","Ryte pro langą pažvelgė smalsi mergaitė.","Kieme vaikštinėjo balta žąsis.","Mergaitė iš tikrųjų labai nustebo.","Ji atsargiai atnešė dubenėlį vandens.","„Ačiū“, – linksmai pasakė močiutė.","Ąžuolo šakose tupėjo mažas paukštelis.","Jis nedrįso išskleisti sparnų.","Vis dėlto paukštelis sukaupė drąsą.","Netrukus jis nuskrido virš žalios pievos.","Vakare paukštelis sugrįžo į savo lizdą.","Šį rytą radau laišką ant stalo.","Jame buvo parašyta įdomi mįslė.","Ilgai galvojau, tačiau atsakymo nežinojau.","Iš tiesų užduotis buvo nelengva.","Rytoj pabandysiu ją išspręsti dar kartą.","Šiąnakt iškrito pirmasis sniegas.","Vaikai apsirengė šiltus drabužius ir išbėgo į kiemą.","Jie pastatė besišypsantį senį besmegenį.","Vėliau visi grįžo į šiltus namus.","Mama išvirė gardžios arbatos.","Šiandien Kęstutis grįžo iš mokyklos.","Jo laukė įdomi mįslė ir pasakos tęsinys.","Aš mąstau apie atsakymą, bet jo dar nežinau.","Draugas sukaupė drąsą ir pakėlė ranką.","Ačiū, kad padėjai man išspręsti mįslę.","Mūsų sode pražydo aukšta saulėgrąža.","Prie jos nutūpė mažas žvirblis.","Kęstutis atsinešė kąsnį duonos.","Paukštelis nedrąsiai priartėjo prie lesalo.","Vakare mes sugrįžome į namus.","Šiandien tavęs labai pasiilgau.","Mūsų klasė vyko į Vilnių.","Ar jūsų mokykla taip pat rengia išvykas?","Manęs laukė netikėta staigmena.","Rytoj papasakosiu visą istoriją.","Anksčiau mes dažnai vaikščiodavome miško takeliu.","Senelis pasakodavo įdomias istorijas.","Prie ąžuolo sustodavome ir klausydavomės paukščių.","Kartais grįždavome namo tik vakare.","Rytoj vėl aplankysime tą gražią vietą.","Milda rado pamestą piniginę.","Ji iš tiesų nežinojo, kam ši priklauso.","Mergaitė nedrįso jos pasilikti.","Sąžinė priminė, kad reikia ieškoti šeimininko.","Netrukus piniginė grįžo pas savininką.","Šįryt išvykome prie Baltijos jūros.","Klaipėdoje aplankėme įdomų muziejų.","Pajūryje pūtė stiprus vėjas, bet saulė švietė.","Smėlyje radome gražių kriauklių.","Grįžę namo pasidalijome įspūdžiais.","Pavasarį žemėje pradeda dygti daigai.","Prie upės žąsys ruošiasi kelionei.","Vaikai stebi, kaip skleidžiasi žiedai.","Rytoj pasodinsime saulėgrąžą.","Mūsų kiemas taps dar gražesnis.","Kęstutis skaitė pasaką apie drąsų keliautoją.","Keliautojas įžengė į tamsią girią.","Ten jis išgirdo keistą garsą ir sustojo.","Iš tikrųjų už krūmo slėpėsi mažas ežiukas.","Pasakos tęsinį skaitysime rytoj.","Šiandien susitikau su draugais.","Jie manęs laukė prie mokyklos.","Mes vieni kitus išklausėme ir daug juokėmės.","Vis dėlto turėjome grįžti iki vakaro.","Ačiū už smagią dieną!","Šiąnakt medžius padengė baltas šerkšnas.","Ryte Kęstutis išėjo į kiemą.","Jis įminė mįslę apie žiemą.","Paskui vaikai statė sniego pilį ir žaidė.","Vakare visi grįžo į šiltus namus.","ačiū","šiandien","rytoj","grįžti","ąžuolas","žąsis","mįslė","drąsa","sąžinė","gręžti","iš tikrųjų","vis dėlto","iš tiesų","šįryt","šiąnakt","sugrįžo","nedrįso","kankorėžis","žvilgsnis","ypač","kąsnis","mąstau","saulėgrąža","tęsinys","Kęstutis","manęs","tavęs","savęs","mūsų","jūsų","mane","tave","save","šerkšnas","žvirblis","įrankis","čiobrelis","sugrįžti","mąstyti","grįždavo","ąžuolą","mįslę","drąsą","grįžome","grįžo","klausydavome"]
+          out=base/'audio';out.mkdir(exist_ok=True)
+          for i,text in enumerate(items):
+              f=out/f'{i}.mp3'
+              if f.exists() and f.stat().st_size>1000: continue
+              with wave.open('/tmp/mokslo.wav','wb') as w:
+                  w.setnchannels(1);w.setsampwidth(2);w.setframerate(synth.sr);w.writeframes(i_int16(synth.synthesize(text)))
+              subprocess.run(['ffmpeg','-nostdin','-loglevel','error','-y','-i','/tmp/mokslo.wav','-codec:a','libmp3lame','-b:a','48k',str(f)],check=True)
+              print(i,text,flush=True)
+          
+          PY
+      - name: Commit audio files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio/
+          if ! git diff --cached --quiet; then
+            git commit -m "Generate Lithuanian dictation MP3 audio"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
