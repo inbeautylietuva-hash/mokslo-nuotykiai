@@ -1,0 +1,100 @@
+name: Generate pronunciation comparison samples
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/voice-comparison.yml']
+permissions:
+  contents: write
+concurrency:
+  group: voice-comparison
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Piper
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y espeak-ng ffmpeg libsndfile1
+          python -m pip install piper-tts==1.8.0 huggingface_hub
+      - name: Generate same two sentences with Ingute and Reginute
+        run: |
+          python - <<'PY'
+          import os, subprocess, pathlib, sys, wave
+          from huggingface_hub import snapshot_download
+          base=pathlib.Path.cwd()
+          out=base/'voice-test'
+          out.mkdir(exist_ok=True)
+          samples=["Mano brolis mano, kad rytoj lis.", "Ar ąžuolų šešėlyje įžiūrėjote žąsį, kuri ėdė žirnius?"]
+          script = """
+          import os, sys, pathlib, subprocess, wave, json
+          from piper import PiperVoice
+          from phonemize_lithuanian import LithuanianPhonemizer
+          from skaiciu_pletiklis import isplesk
+          from synth_reginute import ReginuteSynth,i_int16
+          model, name, out, samples = sys.argv[1:]
+          os.chdir(model)
+          prefix = 'lt_LT-ingute-medium' if name=='ingute' else 'lt_LT-reginute1-medium'
+          v=PiperVoice.load(prefix+'.onnx',config_path=prefix+'.onnx.json')
+          synth=ReginuteSynth(v,LithuanianPhonemizer(),length_scale=v.config.length_scale if name=='ingute' else 1.30,expand_text=isplesk)
+          for i,t in enumerate(json.loads(samples)):
+              f=pathlib.Path(out)/f'{name}-{i}.mp3'
+              if f.exists() and f.stat().st_size>1000: continue
+              with wave.open('/tmp/compare.wav','wb') as w:
+                  w.setnchannels(1); w.setsampwidth(2); w.setframerate(synth.sr); w.writeframes(i_int16(synth.synthesize(t)))
+              subprocess.run(['ffmpeg','-nostdin','-loglevel','error','-y','-i','/tmp/compare.wav','-codec:a','libmp3lame','-b:a','64k',str(f)],check=True)
+          """
+          import json
+          for name, repo in [('ingute','RobertasTa/lt_LT-ingute-medium'),('reginute','RobertasTa/lt_LT-reginute1-medium')]:
+              model=snapshot_download(repo,local_dir='/tmp/compare-'+name)
+              subprocess.run([sys.executable,'-c',script,model,name,str(out),json.dumps(samples,ensure_ascii=False)],cwd=model,check=True)
+          PY
+      - name: Publish Piper comparison samples
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add voice-test/
+          if ! git diff --cached --quiet; then
+            git commit -m "Add Ingute and Reginute pronunciation comparison samples"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Install OmniVoice CPU
+        run: |
+          python -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install omnivoice soundfile
+      - name: Generate stress-marked Krapas Regina comparison
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, torch, soundfile as sf
+          from omnivoice import OmniVoice, OmniVoiceGenerationConfig
+          torch.set_num_threads(4)
+          out=pathlib.Path('voice-test')
+          out.mkdir(exist_ok=True)
+          samples=["Màno brólis mãno, kàd rytój lìs.","Ar̃ ąžuolų̃ šešė́lyje įžiūrė́jote žą̃sį, kurì ė́dė žìrnius?"]
+          model=OmniVoice.from_pretrained("kristijonas/krapas-Regina",device_map="cpu",dtype=torch.float32)
+          cfg=OmniVoiceGenerationConfig(guidance_scale=4,num_step=32)
+          for i,t in enumerate(samples):
+              f=out/f'krapas-{i}.mp3'
+              if f.exists() and f.stat().st_size>1000: continue
+              wav=model.generate(text=t,language="lt",generation_config=cfg,normalize_text=False)[0]
+              sf.write('/tmp/krapas.wav',wav,24000)
+              subprocess.run(['ffmpeg','-nostdin','-loglevel','error','-y','-i','/tmp/krapas.wav','-codec:a','libmp3lame','-b:a','64k',str(f)],check=True)
+          PY
+      - name: Publish Krapas sample recordings
+        run: |
+          git add voice-test/
+          if ! git diff --cached --quiet; then
+            git commit -m "Add non-commercial synthetic Krapas Regina comparison samples"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
