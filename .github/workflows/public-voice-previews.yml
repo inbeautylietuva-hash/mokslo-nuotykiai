@@ -1,0 +1,107 @@
+name: Discover public voice demonstration audio
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/public-voice-previews.yml']
+permissions:
+  contents: write
+jobs:
+  previews:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests beautifulsoup4
+      - name: Find provider-published audio URLs
+        run: |
+          python - <<'PY'
+          import json, re, requests, pathlib
+          from bs4 import BeautifulSoup
+          from urllib.parse import urljoin, urlparse
+          S=requests.Session()
+          S.headers['User-Agent']='Mozilla/5.0 (compatible; MoksloNuotykiai/2.7.1; public audio catalog)'
+          samples=[]
+          def page(url):
+              try:
+                  r=S.get(url,timeout=20)
+                  r.raise_for_status()
+                  return BeautifulSoup(r.text,'html.parser'),r.url
+              except Exception as e:
+                  print(url,e)
+                  return BeautifulSoup('','html.parser'),url
+          def media(node,base):
+              out=[]
+              for tag in node.select('audio, audio source, source, a'):
+                  for attr in ('src','data-src','href'):
+                      v=tag.get(attr,'')
+                      if v and (tag.name in ('audio','source') or re.search(r'\.(mp3|wav|ogg|m4a)(\?|$)',v,re.I)):
+                          u=urljoin(base,v)
+                          if u.startswith('https://') and u not in out: out.append(u)
+              return out
+          def add(key,name,url,source,text=''):
+              if any(x['url']==url and x['key']==key for x in samples): return
+              try:
+                  with S.get(url,headers={'Range':'bytes=0-1023'},stream=True,timeout=12) as r:
+                      mime=r.headers.get('Content-Type','').lower()
+                      if r.status_code not in (200,206) or not ('audio/' in mime or 'octet-stream' in mime or 'video/mp4' in mime):
+                          print('Rejected',url,r.status_code,mime);return
+                      if not next(r.iter_content(64),b''): return
+              except Exception as e:
+                  print('Audio unreachable',url,e);return
+              samples.append(dict(key=key,name=name,url=url,source=source,text=text))
+              print('Verified',key,name,url)
+          google='https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types'
+          soup,base=page(google)
+          wanted=['Achernar','Aoede','Charon','Kore','Puck','Sulafat']
+          for tr in soup.select('tr'):
+              text=tr.get_text(' ',strip=True)
+              for voice in wanted:
+                  if 'lt-LT-Chirp3-HD-'+voice in text:
+                      for u in media(tr,base)[:1]:add('google','Google '+voice,u,google)
+          microsoft='https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/eleven-more-languages-are-generally-available-for-azure-neural-text-to-speech/2236871/'
+          soup,base=page(microsoft)
+          for tr in soup.select('tr'):
+              txt=tr.get_text(' ',strip=True)
+              for key,name,needle in [('ona','Microsoft Ona','OnaNeural'),('leonas','Microsoft Leonas','LeonasNeural')]:
+                  if needle in txt:
+                      for u in media(tr,base)[:1]:add(key,name,u,microsoft)
+          # Publicly documented sample links, if the provider's own blog lacks accessible audio.
+          catalog='https://raw.githubusercontent.com/playht/text-to-speech-api/master/Voices.md'
+          try:
+              r=S.get(catalog,timeout=15);r.raise_for_status()
+              for line in r.text.splitlines():
+                  for key,name,needle in [('ona','Microsoft Ona','lt-LT-OnaNeural'),('leonas','Microsoft Leonas','lt-LT-LeonasNeural')]:
+                      if needle in line and not any(x['key']==key for x in samples):
+                          m=re.search(r'\[Sample\]\((https://[^)]+)\)',line)
+                          if m:add(key,name,m.group(1),catalog)
+          except Exception as e: print('Catalog',e)
+          # Do not infer a voice identity from generic marketing audio.
+          # Only explicitly labeled Lithuanian voice demos can be indexed.
+          for key,url in [('netgeist','https://netgeist.ai/lt/tts'),('eleven','https://elevenlabs.io/text-to-speech/lithuanian'),('sudi','https://sudi.lt/balsas/')]:
+              soup,base=page(url)
+              for i,a in enumerate(soup.select('audio')):
+                  parent=a.find_parent(['figure','article','tr']) or a.parent
+                  label=parent.get_text(' ',strip=True)[:200]
+                  if key=='eleven' and not re.search(r'Lithuanian|lietuvi',label,re.I):continue
+                  if key=='netgeist' and not re.search(r'bals|lietuvi',label,re.I):continue
+                  if key=='sudi' and not re.search(r'Regina|Kristijonas',label,re.I):continue
+                  for u in media(a,base)[:1]:add(key,('NetGeist' if key=='netgeist' else 'ElevenLabs' if key=='eleven' else 'SUDI')+' · '+str(i+1),u,url,label)
+                  if len([x for x in samples if x['key']==key])>=4:break
+          out=pathlib.Path('voice-test/public-previews.json');out.parent.mkdir(exist_ok=True)
+          out.write_text(json.dumps({'samples':samples},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('Total verified sample links',len(samples))
+          PY
+      - name: Publish only public sample links
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add voice-test/public-previews.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish verified public voice preview links"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
