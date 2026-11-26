@@ -1,0 +1,60 @@
+{
+  "samples": [
+    {
+      "key": "google",
+      "name": "Google Achernar",
+      "url": "https://docs.cloud.google.com/static/text-to-speech/docs/audio/lt-LT-Chirp3-HD-Achernar.wav",
+      "source": "https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types",
+      "text": ""
+    },
+    {
+      "key": "google",
+      "name": "Google Aoede",
+      "url": "https://docs.cloud.google.com/static/text-to-speech/docs/audio/lt-LT-Chirp3-HD-Aoede.wav",
+      "source": "https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types",
+      "text": ""
+    },
+    {
+      "key": "google",
+      "name": "Google Charon",
+      "url": "https://docs.cloud.google.com/static/text-to-speech/docs/audio/lt-LT-Chirp3-HD-Charon.wav",
+      "source": "https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types",
+      "text": ""
+    },
+    {
+      "key": "google",
+      "name": "Google Kore",
+      "url": "https://docs.cloud.google.com/static/text-to-speech/docs/audio/lt-LT-Chirp3-HD-Kore.wav",
+      "source": "https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types",
+      "text": ""
+    },
+    {
+      "key": "google",
+      "name": "Google Puck",
+      "url": "https://docs.cloud.google.com/static/text-to-speech/docs/audio/lt-LT-Chirp3-HD-Puck.wav",
+      "source": "https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types",
+      "text": ""
+    },
+    {
+      "key": "google",
+      "name": "Google Sulafat",
+      "url": "https://docs.cloud.google.com/static/text-to-speech/docs/audio/lt-LT-Chirp3-HD-Sulafat.wav",
+      "source": "https://docs.cloud.google.com/text-to-speech/docs/list-voices-and-types",
+      "text": ""
+    },
+    {
+      "key": "ona",
+      "name": "Microsoft Ona",
+      "url": "https://github.com/Azure-Samples/Cognitive-Speech-TTS/raw/refs/heads/master/Blog-Samples/2236871/lt-LT-Ona.wav",
+      "source": "https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/eleven-more-languages-are-generally-available-for-azure-neural-text-to-speech/2236871/",
+      "text": ""
+    },
+    {
+      "key": "leonas",
+      "name": "Microsoft Leonas",
+      "url": "https://github.com/Azure-Samples/Cognitive-Speech-TTS/raw/refs/heads/master/Blog-Samples/2236871/lt-LT-Leonas.wav",
+      "source": "https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/eleven-more-languages-are-generally-available-for-azure-neural-text-to-speech/2236871/",
+      "text": ""
+    }
+  ]
+}
